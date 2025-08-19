@@ -120,22 +120,34 @@ namespace JwtAuthDotNet9.Services
 
             return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
         }
-        public async Task<bool> CheckPasswordAsync(Guid userId, string password)
+        public async Task<CheckPasswordDto?> CheckPasswordAsync(Guid userId)
         {
-            var user = await context.Users.FirstOrDefaultAsync(u => u.Id == userId);
-            if (user is null) return false;
+            var user = await context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+            if (user is null) return null;
 
-            var hasher = new PasswordHasher<User>();
-            var result = hasher.VerifyHashedPassword(user, user.PasswordHash, password);
+            var (expiresAt, isExpired, daysRemaining) = ComputePasswordStatus(user);
 
-            if (result == PasswordVerificationResult.SuccessRehashNeeded)
+            return new CheckPasswordDto
             {
-                user.PasswordHash = hasher.HashPassword(user, password);
-                await context.SaveChangesAsync();
-                return true;
-            }
+                Valid = !isExpired, 
+                PasswordChangedAt = user.PasswordChangedAt,
+                PasswordMaxAgeDays = user.PasswordMaxAgeDays,
+                ExpiresAt = expiresAt,
+                IsExpired = isExpired,
+                DaysRemaining = daysRemaining
+            };
+        }
 
-            return result == PasswordVerificationResult.Success;
+        private static (DateTime? expiresAt, bool isExpired, int? daysRemaining) ComputePasswordStatus(User user)
+        {
+            if (user.PasswordMaxAgeDays <= 0)
+                return (null, false, null);
+
+            var expiresAt = user.PasswordChangedAt.AddDays(user.PasswordMaxAgeDays);
+            var now = DateTime.UtcNow;
+            var isExpired = now >= expiresAt;
+            var daysRemaining = isExpired ? 0 : (int)Math.Ceiling((expiresAt - now).TotalDays);
+            return (expiresAt, isExpired, daysRemaining);
         }
 
         public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)

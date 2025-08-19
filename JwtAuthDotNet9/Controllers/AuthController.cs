@@ -57,12 +57,15 @@ namespace JwtAuthDotNet9.Controllers
 
         [Authorize]
         [HttpPost("check-password")]
-        public async Task<IActionResult> CheckPassword([FromBody] CheckPasswordDto body)
+        public async Task<IActionResult> CheckPassword()
         {
             var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(idStr, out var userId)) return Unauthorized();
-            var ok = await authService.CheckPasswordAsync(userId, body.Password);
-            return Ok(new { valid = ok });
+
+            var status = await authService.CheckPasswordAsync(userId);
+            if (status is null) return NotFound();
+
+            return Ok(status);
         }
 
         [Authorize]

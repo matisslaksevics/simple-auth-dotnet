@@ -8,5 +8,7 @@
         public string Role { get; set; } = string.Empty;
         public string? RefreshToken { get; set; }
         public DateTime? RefreshTokenExpiryTime { get; set; }
+        public DateTime PasswordChangedAt { get; set; } = DateTime.UtcNow;
+        public int PasswordMaxAgeDays { get; set; } = 90;
     }
 }

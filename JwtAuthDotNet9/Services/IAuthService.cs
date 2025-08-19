@@ -8,7 +8,7 @@ namespace JwtAuthDotNet9.Services
         Task<User?> RegisterAsync(UserDto request);
         Task<TokenResponseDto?> LoginAsync(UserDto request);
         Task<TokenResponseDto?> RefreshTokensAsync(RefreshTokenRequestDto request);
-        Task<bool> CheckPasswordAsync(Guid userId, string password);
+        Task<CheckPasswordDto?> CheckPasswordAsync(Guid userId);
         Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
         Task SignOutAsync(Guid userId);
     }
