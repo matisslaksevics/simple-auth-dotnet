@@ -79,7 +79,7 @@ namespace JwtAuthDotNet9.Services
             return user;
         }
 
-        private string GenerateRefreshToken()
+        private static string GenerateRefreshToken()
         {
             var randomNumber = new byte[32];
             using var rng = RandomNumberGenerator.Create();
@@ -100,9 +100,9 @@ namespace JwtAuthDotNet9.Services
         {
             var claims = new List<Claim>
             {
-               new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-               new Claim(ClaimTypes.Name, user.Username),
-               new Claim(ClaimTypes.Role, user.Role ?? "User")
+               new (ClaimTypes.NameIdentifier, user.Id.ToString()),
+               new (ClaimTypes.Name, user.Username),
+               new (ClaimTypes.Role, user.Role ?? "User")
             };
 
             var key = new SymmetricSecurityKey(

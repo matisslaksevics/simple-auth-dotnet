@@ -34,6 +34,9 @@ namespace JwtAuthDotNet9.Controllers
         [HttpPost("refresh-token")]
         public async Task<ActionResult<TokenResponseDto>> RefreshToken(RefreshTokenRequestDto request)
         {
+            var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(idStr, out var userId)) return Unauthorized();
+
             var result = await authService.RefreshTokensAsync(request);
             if (result is null || result.AccessToken is null || result.RefreshToken is null)
                 return Unauthorized("Invalid refresh token.");
@@ -74,6 +77,7 @@ namespace JwtAuthDotNet9.Controllers
         {
             var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(idStr, out var userId)) return Unauthorized();
+
             var changed = await authService.ChangePasswordAsync(userId, body.CurrentPassword, body.NewPassword);
             if (!changed) return BadRequest("Current password is incorrect.");
 
@@ -82,7 +86,7 @@ namespace JwtAuthDotNet9.Controllers
 
         [Authorize]
         [HttpPost("signout")]
-        public async Task<IActionResult> SignOut()
+        public async Task<IActionResult> NewSignOut()
         {
             var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(idStr, out var userId)) return Unauthorized();
