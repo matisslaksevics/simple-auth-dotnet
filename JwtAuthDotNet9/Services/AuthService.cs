@@ -29,7 +29,7 @@ namespace JwtAuthDotNet9.Services
             return await CreateTokenResponse(user);
         }
 
-        private async Task<TokenResponseDto> CreateTokenResponse(User? user)
+        private async Task<TokenResponseDto> CreateTokenResponse(User user)
         {
             return new TokenResponseDto
             {
@@ -51,6 +51,7 @@ namespace JwtAuthDotNet9.Services
 
             user.Username = request.Username;
             user.PasswordHash = hashedPassword;
+            user.Role = "User";
 
             context.Users.Add(user);
             await context.SaveChangesAsync();
@@ -58,9 +59,9 @@ namespace JwtAuthDotNet9.Services
             return user;
         }
 
-        public async Task<TokenResponseDto?> RefreshTokensAsync(RefreshTokenRequestDto request)
+        public async Task<TokenResponseDto?> RefreshTokensAsync(Guid userId, string refreshToken)
         {
-            var user = await ValidateRefreshTokenAsync(request.UserId, request.RefreshToken);
+            var user = await ValidateRefreshTokenAsync(userId, refreshToken);
             if (user is null)
                 return null;
 
@@ -129,7 +130,7 @@ namespace JwtAuthDotNet9.Services
 
             return new CheckPasswordDto
             {
-                Valid = !isExpired, 
+                Valid = !isExpired,
                 PasswordChangedAt = user.PasswordChangedAt,
                 PasswordMaxAgeDays = user.PasswordMaxAgeDays,
                 ExpiresAt = expiresAt,
@@ -176,6 +177,36 @@ namespace JwtAuthDotNet9.Services
             user.RefreshTokenExpiryTime = null;
 
             await context.SaveChangesAsync();
+        }
+        public async Task<UserProfileDto?> GetProfileAsync(Guid userId)
+        {
+            var user = await context.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == userId);
+            if (user is null) return null;
+            return new UserProfileDto
+            {
+                Username = user.Username,
+                Role = user.Role ?? "User"
+            };
+        }
+        public async Task<bool> AdminSetPasswordAsync(Guid userId, string newPassword)
+        {
+            var user = await context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            if (user is null) return false;
+            var hasher = new PasswordHasher<User>();
+            user.PasswordHash = hasher.HashPassword(user, newPassword);
+            user.RefreshToken = null;
+            user.RefreshTokenExpiryTime = null;
+            await context.SaveChangesAsync();
+            return true;
+        }
+        public async Task<bool> ChangeUserRoleAsync(Guid userId, string newRole)
+        {
+            var user = await context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            if (user is null) return false;
+            user.Role = newRole;
+            await context.SaveChangesAsync();
+            return true;
         }
     }
 }

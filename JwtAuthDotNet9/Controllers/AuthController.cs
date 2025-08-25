@@ -32,20 +32,26 @@ namespace JwtAuthDotNet9.Controllers
         }
 
         [HttpPost("refresh-token")]
-        public async Task<ActionResult<TokenResponseDto>> RefreshToken(RefreshTokenRequestDto request)
+        [Authorize]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto request)
         {
             var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (!Guid.TryParse(idStr, out var userId)) return Unauthorized();
+            if (!Guid.TryParse(idStr, out var userId))
+                return Unauthorized("Could not determine user from token.");
 
-            var result = await authService.RefreshTokensAsync(request);
-            if (result is null || result.AccessToken is null || result.RefreshToken is null)
+            var result = await authService.RefreshTokensAsync(userId, request.RefreshToken);
+            if (result is null)
                 return Unauthorized("Invalid refresh token.");
 
             return Ok(result);
         }
 
+
         [Authorize]
         [HttpGet]
+        [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public IActionResult AuthenticatedOnlyEndpoint()
         {
             return Ok("You are authenticated!");
@@ -53,6 +59,9 @@ namespace JwtAuthDotNet9.Controllers
 
         [Authorize(Roles = "Admin")]
         [HttpGet("admin-only")]
+        [ProducesResponseType(typeof(bool),StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public IActionResult AdminOnlyEndpoint()
         {
             return Ok("You are and admin!");
@@ -92,6 +101,40 @@ namespace JwtAuthDotNet9.Controllers
             if (!Guid.TryParse(idStr, out var userId)) return Unauthorized();
 
             await authService.SignOutAsync(userId);
+            return NoContent();
+        }
+        [Authorize]
+        [HttpPost("profile")]
+        public async Task<ActionResult<UserProfileDto>> CheckProfile()
+        {
+            var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(idStr, out var userId)) return Unauthorized();
+
+            var result = await authService.GetProfileAsync(userId);
+            return Ok(result);
+        }
+        [Authorize(Roles = "Admin")]
+        [HttpPost("admin/profile/{userId:guid}")]
+        public async Task<ActionResult<UserProfileDto>> CheckProfile(Guid userId)
+        {
+            var result = await authService.GetProfileAsync(userId);
+            return result is null ? NotFound() : Ok(result);
+        }
+        [Authorize(Roles = "Admin")]
+        [HttpPost("admin/change-password")]
+        public async Task<IActionResult> ChangeUserPassword([FromBody] AdminPasswordChangeDto body)
+        {
+            var changed = await authService.AdminSetPasswordAsync(body.Id, body.NewPassword);
+            if (!changed) return BadRequest("Current password is incorrect.");
+
+            return NoContent();
+        }
+        [Authorize(Roles="Admin")]
+        [HttpPost("admin/change-role")]
+        public async Task<IActionResult> ChangeUserRole([FromBody] ChangeUserRoleDto body)
+        {
+            var changed = await authService.ChangeUserRoleAsync(body.Id, body.NewRole);
+            if (!changed) return BadRequest("Could not change user role.");
             return NoContent();
         }
     }
